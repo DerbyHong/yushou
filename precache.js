@@ -1,5 +1,5 @@
 // 由 tools/build_assets.py 自動產生，請勿手動修改
-self.PRECACHE_VERSION = "0058d345cd";
+self.PRECACHE_VERSION = "dc2641cbd9";
 self.PRECACHE_FILES = [
  "./",
  "app.js",

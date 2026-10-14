@@ -40,12 +40,18 @@
 
   /* ---------- 存檔 ---------- */
   function fresh() {
-    return { v: 1, phase: 'setup', level: 0, step: 0, group: null, props: [], skills: [], skillsRevealed: false, rec: {}, met: [], started: null, finished: null };
+    return { v: 2, phase: 'setup', level: 0, step: 0, group: null, props: [], skills: [], skillsRevealed: false, rec: {}, met: [], started: null, finished: null };
   }
   function load() {
     try {
       const s = JSON.parse(localStorage.getItem(KEY));
-      if (s && s.v === 1) return Object.assign(fresh(), s);
+      if (s && s.v === 1) {
+        // 舊版存檔的 level 就是關卡編號；第 1 關拿掉後改成 LEVELS 的位置
+        if (s.level === 1 && s.phase !== 'setup') { s.phase = 'go'; s.step = 0; }
+        s.level = Math.max(0, LEVELS.findIndex((L) => L.id >= s.level));
+        s.v = 2;
+      }
+      if (s && s.v === 2) return Object.assign(fresh(), s);
     } catch (e) { /* 讀不到就重新開始 */ }
     return fresh();
   }
@@ -56,6 +62,9 @@
   let afterSetup = null;    // 修改組別資料後要回到的階段
   const rk = (l, s) => `${l}-${s}`;
   const recOf = (l, s) => (S.rec[rk(l, s)] ||= { wrong: 0, hints: 0 });
+  // S.level 是 LEVELS 陣列的位置；畫面上的關卡編號用 L.id
+  const lvName = (L) => L.id === 0 ? '序章' : `第 ${L.id} 關`;
+  const idxOf = (id) => Math.max(0, LEVELS.findIndex((L) => L.id >= id));
   const hasProgress = () => !!S.group && S.phase !== 'setup';
 
   /* ---------- 照片（IndexedDB，存 dataURL 最相容） ---------- */
@@ -220,8 +229,8 @@
     save();
   }
   function grantRewardsBefore(level) {
-    for (const L of LEVELS) {
-      if (L.id >= level || !L.reward) continue;
+    for (const L of LEVELS.slice(0, level)) {
+      if (!L.reward) continue;
       if (L.reward.prop && !S.props.includes(L.reward.prop)) S.props.push(L.reward.prop);
       if (L.reward.skill != null && !S.skills.includes(L.reward.skill)) S.skills.push(L.reward.skill);
     }
@@ -242,7 +251,7 @@
         el('p', { class: 'home-sub' }, '北投溫泉走讀實境解謎'),
         el('h1', { class: 'sr' }, '湯守者'),
         S.group && el('p', { class: 'home-group' }, `第 ${S.group.no} 組${S.group.name ? '・' + S.group.name : ''}`),
-        cont && el('p', { class: 'home-progress' }, S.phase === 'done' ? '🏅 已完成全部任務！' : `目前進度：${S.level === 0 ? '序章' : `第 ${S.level} 關「${L.title}」`}`),
+        cont && el('p', { class: 'home-progress' }, S.phase === 'done' ? '🏅 已完成全部任務！' : `目前進度：${S.level === 0 ? '序章' : `${lvName(L)}「${L.title}」`}`),
         el('button', { class: 'btn primary big', onclick: () => { sfx.tap(); onHome = false; if (!S.group) S.phase = 'setup'; render(); } }, cont ? '繼續任務 ▶' : '開始任務 ▶'),
         statusLine(),
         el('div', { class: 'home-foot' },
@@ -288,7 +297,7 @@
     return el('header', { class: 'hud' },
       el('div', { class: 'hud-row' },
         withBack && cur > 0 ? el('button', { class: 'icon-btn', onclick: back, 'aria-label': '上一頁' }, '◀') : el('button', { class: 'icon-btn home-btn', onclick: () => { onHome = true; view = null; render(); }, 'aria-label': '首頁' }, '⌂'),
-        el('div', { class: 'hud-title' }, el('b', null, S.level === 0 ? '序章' : `第 ${S.level} 關`), el('span', null, L.title)),
+        el('div', { class: 'hud-title' }, el('b', null, lvName(L)), el('span', null, L.title)),
         el('button', { class: 'icon-btn', onclick: openMap, 'aria-label': '地圖' }, '🗺'),
         el('button', { class: 'icon-btn bag', onclick: () => openBag(), 'aria-label': '背包' }, '🎒', el('span', { class: 'count' }, `${S.props.length}/6`))),
       el('div', { class: 'energy', title: '青磺能量' }, el('i', { style: { width: pct + '%' } })));
@@ -334,7 +343,7 @@
     const L = LEVELS[S.level];
     const idx = Math.min(view ?? S.step, L.steps.length - 1);
     const st = L.steps[idx];
-    const ctx = { review: idx < S.step, rec: recOf(S.level, idx), key: rk(S.level, idx), idx };
+    const ctx = { review: idx < S.step, rec: recOf(L.id, idx), key: rk(L.id, idx), idx };
     const main = el('main', { class: 'play type-' + st.type });
     if (ctx.review) main.append(el('div', { class: 'review-bar' }, '👀 回顧中', el('button', { class: 'btn small', onclick: () => { view = null; render(); } }, '回到目前進度 ⏩')));
     main.append(renderStep(st, ctx));
@@ -838,7 +847,7 @@
         el('div', { class: 'cert-kicker' }, '湯守者認證'),
         el('h1', null, `第 ${g.no || '?'} 組${g.name ? '・' + g.name : ''}`),
         g.members && el('p', { class: 'cert-members' }, g.members),
-        el('p', null, '完成北投百年溫泉路的 12 道關卡，喚醒湯守觀音，重新啟動守護北投的結界。'),
+        el('p', null, '走完北投百年溫泉路的所有關卡，喚醒湯守觀音，重新啟動守護北投的結界。'),
         el('div', { class: 'cert-props' }, PROP_ORDER.map((k) => el('figure', null, pic(PROPS[k].img), el('figcaption', null, PROPS[k].name)))),
         el('div', { class: 'cert-skills' }, SKILLS.map((k) => el('div', { class: 'skill-pill' }, k.icon, ' ', k.name))),
         S.oath && el('blockquote', null, '「', S.oath, '」'),
@@ -865,10 +874,10 @@
     const zoom = el('button', { class: 'btn small', onclick: () => { scroller.classList.toggle('zoom'); zoom.textContent = scroller.classList.contains('zoom') ? '🔍 縮小' : '🔍 放大'; } }, '🔍 放大');
     const g = LEVELS[S.level].go;
     openOverlay([closeBtn(), el('h2', null, '🗺 探索地圖'),
-      el('p', { class: 'map-note' }, curPin ? `閃爍的地點是下一站：${MAP_PINS[curPin].label}` : '第 1～3 關在北投國小附近，地圖從新北投公園開始。'),
+      el('p', { class: 'map-note' }, curPin ? `閃爍的地點是下一站：${MAP_PINS[curPin].label}` : '第 2～3 關在北投國小附近，地圖從新北投公園開始。'),
       scroller,
       el('div', { class: 'map-tools' }, zoom),
-      g && g.text && S.phase !== 'done' && el('div', { class: 'map-dir' }, el('b', null, `前往第 ${S.level} 關：`), g.text)], 'map-panel');
+      g && g.text && S.phase !== 'done' && el('div', { class: 'map-dir' }, el('b', null, `前往${lvName(LEVELS[S.level])}：`), g.text)], 'map-panel');
   }
 
   /* ---------- 背包 ---------- */
@@ -878,12 +887,13 @@
     const content = el('div', { class: 'bag-content' });
     const bar = el('div', { class: 'tabs' }, tabs.map(([k, label]) => el('button', { class: 'tab' + (k === tab ? ' on' : ''), onclick: () => openBag(k) }, label)));
     if (tab === 'props') {
-      content.append(el('div', { class: 'prop-grid' }, PROP_ORDER.map((k, i) => {
+      content.append(el('div', { class: 'prop-grid' }, PROP_ORDER.map((k) => {
         const P = PROPS[k];
         const have = S.props.includes(k);
+        const from = LEVELS.find((L) => L.reward && L.reward.prop === k);
         return el('button', { class: 'prop-cell' + (have ? ' have' : ''), onclick: () => have && lightbox(P.img, `${P.name}：${P.desc}`) },
           have ? pic(P.img) : el('div', { class: 'prop-locked' }, '?'),
-          el('span', null, have ? P.name : `第 ${(i + 1) * 2 === 12 ? 11 : (i + 1) * 2} 關後獲得`));
+          el('span', null, have ? P.name : from ? `${lvName(from)}後獲得` : '？？？'));
       })));
     } else if (tab === 'skills') {
       content.append(el('div', { class: 'skill-list' }, SKILLS.map((k, i) => {
@@ -964,18 +974,18 @@
     const L = LEVELS[S.level];
     const st = L.steps[S.step];
     const canSkip = !onHome && S.phase === 'play' && st && TASK_TYPES.has(st.type) && view === null;
-    const sel = el('select', { class: 'inp' }, LEVELS.map((x) => el('option', { value: x.id, selected: x.id === S.level ? true : null }, x.id === 0 ? '序章' : `第 ${x.id} 關 ${x.title}`)));
+    const sel = el('select', { class: 'inp' }, LEVELS.map((x, i) => el('option', { value: i, selected: i === S.level ? true : null }, x.id === 0 ? '序章' : `${lvName(x)} ${x.title}`)));
     let solvedCount = 0; let wrongTotal = 0;
     eachTask((_, __, ___, r) => { if (r && r.done) solvedCount++; if (r) wrongTotal += r.wrong || 0; });
     openOverlay([closeBtn(), el('h2', null, '👩‍🏫 老師專區'),
       statusLine(),
       el('div', { class: 't-info' },
         el('p', null, `組別：${S.group ? `第 ${S.group.no} 組 ${S.group.name || ''}` : '尚未報到'}`),
-        el('p', null, `進度：${S.phase === 'done' ? '已完成' : (S.level === 0 ? '序章' : `第 ${S.level} 關`) + `（${{ go: '前往中', title: '抵達', play: `第 ${S.step + 1} 步`, reward: '領取道具', setup: '報到' }[S.phase] || ''}）`}`),
+        el('p', null, `進度：${S.phase === 'done' ? '已完成' : lvName(L) + `（${{ go: '前往中', title: '抵達', play: `第 ${S.step + 1} 步`, reward: '領取道具', setup: '報到' }[S.phase] || ''}）`}`),
         el('p', null, `完成題目 ${solvedCount} 題・累計答錯 ${wrongTotal} 次`),
         S.started && el('p', null, `開始時間：${fmtTime(S.started)}`)),
       canSkip && el('button', { class: 'btn big', onclick: () => {
-        const r = recOf(S.level, S.step);
+        const r = recOf(L.id, S.step);
         r.done = true; r.skipped = true; r.at = Date.now();
         if (st.type === 'multitext') { S.skillsRevealed = true; if (st.grantSkill != null && !S.skills.includes(st.grantSkill)) S.skills.push(st.grantSkill); }
         save(); closeOverlay(); next();
@@ -1042,7 +1052,7 @@
   if (devHost && location.hash === '#play' && S.group) onHome = false;
   const jm = devHost && location.hash.match(/^#jump=(\d+),(\d+)(?:,(\w+))?(?:,(\w+))?/);
   if (jm) {
-    const lv = +jm[1];
+    const lv = idxOf(+jm[1]);
     S = Object.assign(fresh(), { phase: jm[3] || 'play', level: lv, step: +jm[2], group: { no: 3, name: '測試小隊', members: '王小明、李小華' }, started: Date.now() - 3600e3 });
     grantRewardsBefore(lv);
     if (jm[3] === 'done') { grantRewardsBefore(99); S.skills = [0, 1, 2]; S.skillsRevealed = true; S.finished = Date.now(); S.oath = '我願意傾聽土地的故事，把北投的記憶告訴下一個人。'; }
@@ -1052,10 +1062,11 @@
   }
   if (devHost) {
     // 開發測試用：jump(關卡, 步驟, 階段, 其他狀態)
-    window.jump = (level, step, phase = 'play', extra = {}) => {
+    window.jump = (id, step, phase = 'play', extra = {}) => {
+      const level = idxOf(id);
       const s = Object.assign(fresh(), { phase, level, step, group: { no: 3, name: '測試小隊', members: '王小明、李小華' }, started: Date.now() - 3600e3 }, extra);
-      s.props = extra.props || LEVELS.filter((L) => L.id < level && L.reward && L.reward.prop).map((L) => L.reward.prop);
-      s.skills = extra.skills || LEVELS.filter((L) => L.id < level && L.reward && L.reward.skill != null).map((L) => L.reward.skill);
+      s.props = extra.props || LEVELS.slice(0, level).filter((L) => L.reward && L.reward.prop).map((L) => L.reward.prop);
+      s.skills = extra.skills || LEVELS.slice(0, level).filter((L) => L.reward && L.reward.skill != null).map((L) => L.reward.skill);
       localStorage.setItem(KEY, JSON.stringify(s));
       location.hash = 'play';
       location.reload();

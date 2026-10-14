@@ -265,7 +265,7 @@
     let no = g.no;
     const nos = [];
     const grid = el('div', { class: 'no-grid' });
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 15; i++) {
       const b = el('button', { class: 'no-btn' + (no === i ? ' sel' : ''), onclick: () => { sfx.tap(); no = i; nos.forEach((x, j) => x.classList.toggle('sel', j + 1 === i)); } }, i);
       nos.push(b); grid.append(b);
     }

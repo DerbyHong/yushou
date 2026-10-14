@@ -25,6 +25,7 @@
     }
     return e;
   }
+  const isTall = (name) => { const z = (self.IMAGE_SIZES || {})[name]; return !!z && z[1] > z[0]; };
   const pic = (name, cls, alt) => el('img', { src: IMG(name), class: cls, alt: alt || '', draggable: 'false', decoding: 'async' });
   const paras = (text) => (Array.isArray(text) ? text : [text]).map((t) => el('p', null, t));
   const norm = (s) => String(s || '').normalize('NFKC').replace(/[\s\p{P}\p{S}]/gu, '').replace(/台/g, '臺').toLowerCase();
@@ -320,7 +321,7 @@
   function titleScreen() {
     const L = LEVELS[S.level];
     return [hud(false), el('main', { class: 'title-screen' },
-      el('div', { class: 'title-hero' }, L.hero && pic(L.hero, 'hero-img')),
+      el('div', { class: 'title-hero' }, L.hero && pic(L.hero, 'hero-img' + (isTall(L.hero) ? ' tall' : ''))),
       el('div', { class: 'card title-card' },
         el('div', { class: 'lv-badge' }, `第 ${L.id} 關`),
         el('h1', null, L.title),
@@ -610,7 +611,8 @@
   function stepPhoto(st, ctx) {
     const T = Task(st, ctx, { okFace: 'spirit_normal' });
     const preview = el('div', { class: 'photo-preview' }, el('span', null, '📷 還沒有照片'));
-    const input = el('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true, onchange: async () => {
+    // 不加 capture 屬性：iPad 會跳出「拍照／照片圖庫」選單，Safari 和 Chrome 都能正常開相機
+    const input = el('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async () => {
       const f = input.files && input.files[0];
       if (!f) return;
       T.say('照片處理中…');

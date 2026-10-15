@@ -125,6 +125,23 @@
     reward: () => tone([[523, 0.14], [659, 0.14], [784, 0.14], [1047, 0.5]]),
   };
 
+  /* ---------- 版本更新 ---------- */
+  let swReg = null;          // Service Worker 註冊
+  let updateReady = false;   // 新版本已接手，等重新載入
+  async function forceUpdate() {
+    if (!navigator.onLine) { alert('請先連上網路，再重新下載。'); return; }
+    if (!confirm('要清除這台 iPad 上暫存的遊戲檔案，重新下載最新版嗎？\n（遊戲進度和照片不會被刪除）')) return;
+    try {
+      const rs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(rs.map((r) => r.unregister()));
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((k) => k.startsWith('yushou-')).map((k) => caches.delete(k)));
+    } catch (e) { /* ignore */ }
+    const q = new URLSearchParams(location.search);
+    q.set('t', Date.now());
+    location.replace(location.pathname + '?' + q);
+  }
+
   /* ---------- 離線狀態 ---------- */
   async function offlineStatus() {
     if (!('serviceWorker' in navigator) || !('caches' in window)) return { state: 'unsupported' };
@@ -138,6 +155,11 @@
     const box = el('div', { class: 'offline-status' }, '檢查離線資料中…');
     const tick = async () => {
       if (devHost) { box.textContent = '🛠 本機開發模式：未啟用離線快取（網址加 ?sw=1 可測試）'; return true; }
+      if (swReg && navigator.serviceWorker.controller && (swReg.installing || swReg.waiting)) {
+        box.className = 'offline-status warn';
+        box.textContent = '⏳ 發現新版本，正在下載…（請保持網路連線，下載完會自動更新）';
+        return false;
+      }
       const s = await offlineStatus();
       if (s.state === 'ready') {
         box.className = 'offline-status ok';
@@ -179,6 +201,7 @@
 
   /* ---------- 流程 ---------- */
   function render() {
+    if (updateReady && onHome) { location.reload(); return; }
     clearTimers();
     $app.replaceChildren();
     window.scrollTo(0, 0);
@@ -1001,6 +1024,7 @@
       } }, '跳到這一關')),
       el('button', { class: 'btn big', onclick: () => { afterSetup = S.phase === 'setup' ? null : S.phase; S.phase = 'setup'; onHome = false; closeOverlay(); render(); } }, '✏️ 修改組別資料'),
       el('button', { class: 'btn big', onclick: exportRecords }, '📤 匯出這組的紀錄（含照片）'),
+      !devHost && 'serviceWorker' in navigator && el('button', { class: 'btn big', onclick: forceUpdate }, '🔄 重新下載最新版（進度不會消失）'),
       el('button', { class: 'btn danger big', onclick: async () => {
         if (!confirm('確定要清除這台 iPad 上的所有遊戲紀錄和照片嗎？')) return;
         if (!confirm('真的要清除嗎？清除後無法復原！建議先匯出紀錄。')) return;
@@ -1044,7 +1068,22 @@
   const devHost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !/[?&]sw=1/.test(location.search);
   if ('serviceWorker' in navigator) {
     if (devHost) navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
-    else navigator.serviceWorker.register('sw.js').catch(() => {});
+    else {
+      // updateViaCache: 'none'：檢查新版本時不要用瀏覽器暫存的 sw.js / precache.js
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+        swReg = reg;
+        // 從主畫面圖示回到 App 時，iPad 通常不會重新載入頁面，所以回到前景時主動檢查新版本
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+      }).catch(() => {});
+      // 新版本下載完並接手後：在首頁就直接重新載入，遊戲中則顯示更新按鈕（進度都有存，不會消失）
+      const hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController) return;
+        updateReady = true;
+        if (onHome) location.reload();
+        else if (!document.querySelector('.update-bar')) document.body.append(el('button', { class: 'update-bar', onclick: () => location.reload() }, '🔄 有新版本！點這裡更新（進度不會消失）'));
+      });
+    }
   }
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   document.addEventListener('gesturestart', (e) => e.preventDefault());

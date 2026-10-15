@@ -107,6 +107,11 @@ main {
 .offline-status { margin: 14px 0 4px; padding: 10px 12px; border-radius: 12px; font-size: .85em; background: #f1eadb; color: var(--ink-2); }
 .offline-status.ok { background: var(--green-l); color: var(--green-d); }
 .offline-status.warn { background: var(--gold-l); color: #7a5410; }
+.update-bar {
+  position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 50;
+  width: min(480px, calc(100% - 32px)); padding: 14px 18px; border: 0; border-radius: 14px;
+  background: var(--green-d); color: #fff; font: inherit; font-weight: 800; box-shadow: var(--shadow); cursor: pointer;
+}
 .home-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
 .ver { color: var(--ink-3); font-size: .75em; padding: 8px; }
 

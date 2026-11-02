@@ -33,7 +33,7 @@ const PROPS = {
   seal:    { name: '時光橋印', img: 'prop_seal',    desc: '跨越新舊之橋，連起北投的過去與現在。' },
   crystal: { name: '青磺之晶', img: 'prop_crystal', desc: '這顆泉脈結晶，恢復了青磺精靈的一點力量。' },
   feather: { name: '天狗羽札', img: 'prop_feather', desc: '風中的訊息是……守護，需要判斷與選擇。' },
-  key:     { name: '浴湯之鑰', img: 'prop_key',     desc: '打開公共浴場的記憶，讀懂老建築的故事。' },
+  key:     { name: '浴場之鑰', img: 'prop_key',     desc: '打開公共浴場的記憶，讀懂老建築的故事。' },
   chisel:  { name: '湯守刻刀', img: 'prop_chisel',  desc: '現在，你已具備喚醒湯守觀音的守護之力。' },
 };
 const PROP_ORDER = ['pen', 'seal', 'feather', 'key', 'crystal', 'chisel'];

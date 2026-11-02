@@ -62,9 +62,9 @@
   let afterSetup = null;    // 修改組別資料後要回到的階段
   const rk = (l, s) => `${l}-${s}`;
   const recOf = (l, s) => (S.rec[rk(l, s)] ||= { wrong: 0, hints: 0 });
-  // S.level 是 LEVELS 陣列的位置；畫面上的關卡編號用 L.id
-  const lvName = (L) => L.id === 0 ? '序章' : `第 ${L.id} 關`;
-  const idxOf = (id) => Math.max(0, LEVELS.findIndex((L) => L.id >= id));
+  // S.level 是 LEVELS 陣列的位置，也就是畫面上的關卡編號（序章 = 0）。
+  // L.id 只當作紀錄和照片的 key，不顯示，這樣增減關卡時編號會自動接續，舊紀錄也不會錯位
+  const lvName = (L) => { const n = LEVELS.indexOf(L); return n === 0 ? '序章' : `第 ${n} 關`; };
   const hasProgress = () => !!S.group && S.phase !== 'setup';
 
   /* ---------- 照片（IndexedDB，存 dataURL 最相容） ---------- */
@@ -333,7 +333,7 @@
     return [hud(false), el('main', { class: 'go' },
       el('div', { class: 'card go-card' },
         el('div', { class: 'go-kicker' }, '下一站'),
-        el('h2', null, `第 ${L.id} 關・${L.title}`),
+        el('h2', null, `${lvName(L)}・${L.title}`),
         !g.riddle && el('p', { class: 'go-place' }, '📍 ', L.place),
         g.riddle && el('div', { class: 'riddle' }, el('small', null, '謎語'), el('b', null, g.riddle)),
         g.text && el('p', { class: 'go-text' }, g.text),
@@ -355,7 +355,7 @@
     return [hud(false), el('main', { class: 'title-screen' },
       el('div', { class: 'title-hero' }, L.hero && pic(L.hero, 'hero-img' + (isTall(L.hero) ? ' tall' : ''))),
       el('div', { class: 'card title-card' },
-        el('div', { class: 'lv-badge' }, `第 ${L.id} 關`),
+        el('div', { class: 'lv-badge' }, lvName(L)),
         el('h1', null, L.title),
         el('p', { class: 'go-place' }, '📍 ', L.place),
         el('button', { class: 'btn primary big', onclick: () => { sfx.tap(); S.phase = 'play'; save(); render(); } }, '開始挑戰 ▶')))];
@@ -561,7 +561,7 @@
     return T.box;
   }
 
-  /* 多格填答（第 12 關技能） */
+  /* 多格填答（最後一關的技能） */
   function stepMultiText(st, ctx) {
     const T = Task(st, ctx, { okFace: 'spirit_joy' });
     const inps = st.parts.map((p, i) => {
@@ -897,7 +897,7 @@
     const zoom = el('button', { class: 'btn small', onclick: () => { scroller.classList.toggle('zoom'); zoom.textContent = scroller.classList.contains('zoom') ? '🔍 縮小' : '🔍 放大'; } }, '🔍 放大');
     const g = LEVELS[S.level].go;
     openOverlay([closeBtn(), el('h2', null, '🗺 探索地圖'),
-      el('p', { class: 'map-note' }, curPin ? `閃爍的地點是下一站：${MAP_PINS[curPin].label}` : '第 2～3 關在北投國小附近，地圖從新北投公園開始。'),
+      el('p', { class: 'map-note' }, curPin ? `閃爍的地點是下一站：${MAP_PINS[curPin].label}` : '第 1～2 關在北投國小附近，地圖從新北投公園開始。'),
       scroller,
       el('div', { class: 'map-tools' }, zoom),
       g && g.text && S.phase !== 'done' && el('div', { class: 'map-dir' }, el('b', null, `前往${lvName(LEVELS[S.level])}：`), g.text)], 'map-panel');
@@ -978,7 +978,7 @@
         if (st.type === 'photo') DB.get(rk(L.id, i)).then((d) => { if (d) item.append(el('img', { src: d, class: 'rec-photo', alt: '照片' })); }).catch(() => {});
         items.push(item);
       });
-      if (items.length) { any = true; box.append(el('h3', null, L.id === 0 ? '序章' : `第 ${L.id} 關・${L.title}`), ...items); }
+      if (items.length) { any = true; box.append(el('h3', null, L.id === 0 ? '序章' : `${lvName(L)}・${L.title}`), ...items); }
     });
     if (!any) box.append(el('p', { class: 'small-note' }, '還沒有紀錄。完成開放題或拍照後，會出現在這裡。'));
     return box;
@@ -1045,7 +1045,7 @@
     if (S.oath) h += `<p><b>湯守盟約：</b>「${esc(S.oath)}」</p>`;
     let lastLv = -1;
     eachTask((L, st, i, r) => {
-      if (L.id !== lastLv) { h += `<h2>${L.id === 0 ? '序章' : `第 ${L.id} 關・${esc(L.title)}`}</h2>`; lastLv = L.id; }
+      if (L.id !== lastLv) { h += `<h2>${L.id === 0 ? '序章' : `${lvName(L)}・${esc(L.title)}`}</h2>`; lastLv = L.id; }
       h += `<p class="q">${esc(st.q)}</p>`;
       if (!r || !r.done) { h += '<p class="a m">（尚未完成）</p>'; return; }
       h += `<p class="a">${esc(answerText(st, r))}</p><p class="m">答錯 ${r.wrong || 0} 次・看提示 ${r.hints || 0} 次・${esc(fmtTime(r.at))}</p>`;
@@ -1091,7 +1091,7 @@
   if (devHost && location.hash === '#play' && S.group) onHome = false;
   const jm = devHost && location.hash.match(/^#jump=(\d+),(\d+)(?:,(\w+))?(?:,(\w+))?/);
   if (jm) {
-    const lv = idxOf(+jm[1]);
+    const lv = Math.min(+jm[1], LEVELS.length - 1);
     S = Object.assign(fresh(), { phase: jm[3] || 'play', level: lv, step: +jm[2], group: { no: 3, name: '測試小隊', members: '王小明、李小華' }, started: Date.now() - 3600e3 });
     grantRewardsBefore(lv);
     if (jm[3] === 'done') { grantRewardsBefore(99); S.skills = [0, 1, 2]; S.skillsRevealed = true; S.finished = Date.now(); S.oath = '我願意傾聽土地的故事，把北投的記憶告訴下一個人。'; }
@@ -1101,8 +1101,7 @@
   }
   if (devHost) {
     // 開發測試用：jump(關卡, 步驟, 階段, 其他狀態)
-    window.jump = (id, step, phase = 'play', extra = {}) => {
-      const level = idxOf(id);
+    window.jump = (level, step, phase = 'play', extra = {}) => {
       const s = Object.assign(fresh(), { phase, level, step, group: { no: 3, name: '測試小隊', members: '王小明、李小華' }, started: Date.now() - 3600e3 }, extra);
       s.props = extra.props || LEVELS.slice(0, level).filter((L) => L.reward && L.reward.prop).map((L) => L.reward.prop);
       s.skills = extra.skills || LEVELS.slice(0, level).filter((L) => L.reward && L.reward.skill != null).map((L) => L.reward.skill);

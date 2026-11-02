@@ -1,5 +1,5 @@
 /* 湯守者 Service Worker：安裝時把整個遊戲下載到 iPad，之後完全離線運作 */
-// build: 73b98b3602
+// build: 1422f788b5
 importScripts('precache.js');
 
 const CACHE = 'yushou-' + self.PRECACHE_VERSION;
